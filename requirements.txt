@@ -1,0 +1,16 @@
+cdsapi
+fastapi
+httpx
+joblib
+matplotlib
+netcdf4
+numpy
+openpyxl
+pandas
+pyarrow
+pytest
+requests
+scikit-learn
+uvicorn
+xarray
+xgboost

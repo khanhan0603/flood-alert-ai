@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Local/editor files
+.idea/
+.vscode/
+*.log
+
+# Large/generated data. Keep source code, docs, reports, and small model artifacts in git.
+data/
+models_saved/
+
+# Notebook runtime noise
+.ipynb_checkpoints/
+
