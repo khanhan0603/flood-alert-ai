@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout
@@ -30,4 +32,3 @@ jobs:
 
       - name: Run tests
         run: pytest -q tests
-

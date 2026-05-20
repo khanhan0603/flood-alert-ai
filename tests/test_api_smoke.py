@@ -1,4 +1,9 @@
+import sys
+from pathlib import Path
+
 from fastapi.testclient import TestClient
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.api import app
 
@@ -27,4 +32,3 @@ def test_predict_endpoint_accepts_minimal_payload():
     assert payload["province"] == "ci_smoke"
     assert payload["overall_risk"] in {"LOW", "MEDIUM", "HIGH"}
     assert set(payload["forecast"]) == {"day_1", "day_2", "day_3"}
-
