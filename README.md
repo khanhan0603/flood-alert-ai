@@ -3,77 +3,98 @@
 ## Overview
 
 Machine learning component for the **Flood Alert & Rescue Support System**,
-developed to predict short-term extreme-rainfall / flood-risk proxy events
-for locations across Vietnam.
+developed to predict short-term extreme-rainfall events as a proxy for
+flood-risk assessment across Vietnam.
 
-The project trains three separate **XGBoost classification models** to
-predict the probability of an extreme-rainfall event at different lead
-times:
+The project trains three independent **XGBoost classification models** to
+predict the probability of an extreme-rainfall event at different lead times:
 
 - **1 day ahead**
 - **2 days ahead**
 - **3 days ahead**
 
-The trained models are later served through a separate **FastAPI AI
-service** and consumed by the Spring Boot backend.
+The trained models are exported and served through a separate
+**FastAPI AI service**, which is consumed by the main Spring Boot backend.
+
+---
+
+## My Role
+
+**AI / Machine Learning Developer**
+
+Responsible for the machine-learning implementation, including:
+
+- Meteorological data preprocessing
+- Feature engineering
+- Extreme-rainfall target generation
+- Lead-time target construction
+- XGBoost model training
+- Class-imbalance handling
+- Model evaluation
+- Prediction-threshold tuning
+- Model artifact generation for deployment
+
+The machine-learning pipeline and models were independently implemented for
+this project with the support of AI-assisted development tools.
 
 ---
 
 ## Research Foundation
 
-This project **adapts the research ideas and data-processing approach**
-from the open-source project:
+This project **adapts research ideas and data-processing concepts** from the
+open-source project:
 
-**ECMWF Code for Earth - ml_flood**
+**ECMWF Code for Earth - `ml_flood`**
 
 https://github.com/ECMWFCode4Earth/ml_flood
 
-The original `ml_flood` project investigates machine-learning techniques
-for flood-event prediction using open meteorological datasets from
-**ECMWF/Copernicus**, including ERA5 data. Its workflow explores
-meteorological predictors, temporal dependencies, and hydrology-related
-variables for flood prediction.
+The original `ml_flood` project investigates machine-learning approaches for
+flood prediction using open meteorological datasets from
+**ECMWF/Copernicus**, including ERA5 data.
 
-This project inherits the main research direction and processing concepts,
-particularly:
+This project inherits the main research direction and selected processing
+concepts, including:
 
-- Using **ERA5 meteorological data** as predictors.
-- Using precipitation and hydrological-related variables.
-- Capturing temporal dependencies through **lag features**.
+- Using **ERA5 meteorological data** as predictors
+- Using precipitation and hydrological-related variables
+- Capturing temporal dependencies through **lag features**
 - Using **rolling-window features** to represent accumulated weather
-  conditions.
-- Incorporating hydrology-inspired information such as runoff and
-  antecedent precipitation.
+  conditions
+- Incorporating hydrology-inspired information such as **runoff** and
+  **antecedent precipitation**
 
 However, this project **does not directly reuse the original model**.
-It implements a separate classification-based approach adapted to the
-Vietnamese context.
+The data-processing pipeline, target definition, feature engineering,
+XGBoost training, evaluation, and lead-time prediction setup were adapted
+and implemented for a Vietnam-focused use case.
 
-### Main differences from the original project
+### Adaptation from the Original Research
 
-| Original `ml_flood` | This project |
+| `ml_flood` Research | This Project |
 |---|---|
 | ECMWF/Copernicus flood prediction research | Vietnam-focused flood-risk prediction |
-| ERA5 + GloFAS / discharge-oriented targets | ERA5-based extreme-rainfall proxy target |
-| Multiple ML techniques | XGBoost classification |
-| Flood/discharge prediction | Extreme-rainfall / flood-risk proxy classification |
-| Original research datasets and structure | Reprocessed dataset for 34 Vietnamese provinces/cities |
-| Research comparison of ML methods | Three lead-time prediction models |
+| ERA5 and hydrological data | ERA5 meteorological and hydrological variables |
+| Flood/discharge-oriented prediction | Extreme-rainfall proxy for flood risk |
+| Multiple machine-learning approaches | XGBoost classification |
+| Research-oriented prediction | 1-, 2-, and 3-day lead-time prediction |
+| Original research workflow | Adapted preprocessing and feature-engineering pipeline |
+| Original datasets and target definitions | Reprocessed Vietnam-focused dataset |
 
 ---
 
 ## Project Objective
 
-The objective is to develop a machine-learning pipeline that can:
+The objective is to build a machine-learning pipeline that can:
 
 1. Process historical ERA5 meteorological data.
-2. Construct temporal and meteorological features.
-3. Define an extreme-rainfall proxy label for each province.
-4. Generate prediction targets for different lead times.
-5. Train separate XGBoost models for 1-, 2-, and 3-day prediction.
-6. Evaluate model performance using classification metrics.
-7. Select an operational probability threshold for early warning.
-8. Export trained models for use by the FastAPI prediction service.
+2. Convert meteorological observations into province-level daily data.
+3. Construct temporal and meteorological features.
+4. Define a province-specific extreme-rainfall target.
+5. Generate prediction targets for different lead times.
+6. Train separate XGBoost models for 1-, 2-, and 3-day prediction.
+7. Evaluate model performance using classification metrics.
+8. Tune a probability threshold for early-warning purposes.
+9. Export trained models for use by the FastAPI prediction service.
 
 ---
 
@@ -81,24 +102,26 @@ The objective is to develop a machine-learning pipeline that can:
 
 ### Historical Data
 
-The training dataset is built from **ERA5 single-level meteorological
-data** covering Vietnam.
+The training dataset is built from **ERA5 single-level meteorological data**
+covering Vietnam.
 
 - Period: **2000-2025**
 - Temporal resolution: **6-hourly**
 - Spatial scope: Vietnam
 - Administrative coverage: **34 provinces/cities**
+- Dataset size: **333,506 records**
 
 The processed dataset contains:
 
-- **307,836 rows**
+- **333,506 rows**
 - **103 columns**
 - **97 training features**
 - Approximately **10.01% positive samples**
 
 ### Meteorological Variables
 
-The ERA5 data includes:
+The dataset includes meteorological and hydrological-related variables such
+as:
 
 - Total precipitation
 - 2m temperature
@@ -113,7 +136,7 @@ The ERA5 data includes:
 
 ## Data Processing & Feature Engineering
 
-The preprocessing pipeline converts the original ERA5 data into
+The preprocessing pipeline transforms the original ERA5 observations into
 province-level daily features.
 
 ### Time Conversion
@@ -144,10 +167,10 @@ Daily meteorological statistics include:
 
 ### Lag Features
 
-Temporal lag features are created for up to **7 previous days** for
-selected weather and hydrological variables.
+Temporal lag features are created for up to **7 previous days** for selected
+weather and hydrological variables.
 
-These features allow the model to capture recent weather conditions and
+These features allow the models to capture recent weather conditions and
 their temporal persistence.
 
 ### Rolling Features
@@ -158,12 +181,12 @@ Rolling-window features are generated using:
 - 5-day windows
 - 7-day windows
 
-These features represent accumulated or persistent precipitation and
-runoff conditions.
+These features represent accumulated or persistent precipitation and runoff
+conditions.
 
 ### Antecedent Precipitation Index
 
-An Antecedent Precipitation Index (API) is used to represent the influence
+An **Antecedent Precipitation Index (API)** is used to represent the influence
 of previous rainfall:
 
 ```text
@@ -180,14 +203,16 @@ k = 0.85
 
 ## Target Definition
 
-The project does **not** use directly observed flood water levels as the
+The model does **not** use directly observed flood water levels as the
 training label.
 
 Instead, `flood_label` is constructed as a **proxy for extreme-rainfall
 conditions**.
 
-For each province, the 90th percentile of daily maximum precipitation
-(`tp_max`) is calculated:
+### Province-Specific P90 Threshold
+
+For each province, the **90th percentile (P90) of daily maximum precipitation
+(`tp_max`)** is calculated separately.
 
 ```python
 province_thresholds = (
@@ -196,25 +221,29 @@ province_thresholds = (
 )
 ```
 
-A day is labeled as an extreme event when:
+A day is labeled as an extreme-rainfall event when its daily maximum
+precipitation reaches or exceeds the P90 threshold of that province:
 
 ```python
 flood_label = tp_max >= province_specific_p90
 ```
 
-This creates a province-specific extreme-rainfall threshold rather than
-using one fixed rainfall threshold for the entire country.
+This creates a **province-specific extreme-rainfall threshold** instead of
+using a single fixed rainfall threshold for the entire country.
 
-### Why province-specific thresholds?
+### Why Province-Specific P90?
 
-Different regions of Vietnam have different rainfall regimes. A
-province-specific percentile threshold allows the model to adapt to
-local climatological differences.
+Rainfall characteristics differ between regions of Vietnam.
+
+Using the P90 of `tp_max` separately for each province allows the target
+definition to account for local rainfall characteristics and avoids applying
+the same absolute threshold to regions with substantially different
+precipitation regimes.
 
 ### Important Limitation
 
-The resulting label is an **extreme-rainfall proxy for flood risk**, not
-direct ground-truth flood observations.
+The resulting `flood_label` is an **extreme-rainfall proxy for flood risk**,
+not direct ground-truth flood observations.
 
 Therefore, the model should not be interpreted as directly predicting
 observed river flooding without additional validation against independent
@@ -231,20 +260,20 @@ flood observations such as:
 
 ## Prediction Targets
 
-Separate targets are generated for each lead time.
+Separate prediction targets are generated for each lead time.
 
-For a province:
+For each province:
 
 ```python
 target = flood_label.shift(-lead)
 ```
 
-Three prediction targets are used:
+The project uses three prediction targets:
 
 ```text
-Lead 1 → Extreme event 1 day ahead
-Lead 2 → Extreme event 2 days ahead
-Lead 3 → Extreme event 3 days ahead
+Lead 1 → Extreme-rainfall event 1 day ahead
+Lead 2 → Extreme-rainfall event 2 days ahead
+Lead 3 → Extreme-rainfall event 3 days ahead
 ```
 
 Three independent XGBoost models are trained:
@@ -265,11 +294,11 @@ The project uses:
 
 **XGBClassifier**
 
-The models are trained independently for each prediction lead time.
+Three models are trained independently for the three prediction lead times.
 
 ### Train / Validation / Test Split
 
-A temporal split is used:
+A chronological split is used:
 
 ```text
 70% → Training
@@ -277,37 +306,21 @@ A temporal split is used:
 15% → Test
 ```
 
-A temporal split is used instead of a random split to reduce information
-leakage from future observations into the training data.
+A temporal split is used instead of a random split to reduce the risk of
+information leakage from future observations into the training process.
 
 ### Class Imbalance
 
-Extreme events represent only around 10% of the processed dataset.
+Extreme-rainfall events represent approximately **10%** of the processed
+dataset.
 
-To address this imbalance, the training process calculates:
+To address this class imbalance, the training process calculates:
 
 ```text
 scale_pos_weight = negative_samples / positive_samples
 ```
 
-and passes the resulting value to XGBoost.
-
-### Model Configuration
-
-```python
-XGBClassifier(
-    n_estimators=500,
-    max_depth=6,
-    learning_rate=0.05,
-    scale_pos_weight=scale_weight,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    min_child_weight=5,
-    random_state=42,
-    eval_metric="auc",
-    early_stopping_rounds=50
-)
-```
+The resulting value is passed to XGBoost during training.
 
 ---
 
@@ -315,114 +328,101 @@ XGBClassifier(
 
 The trained models are evaluated using:
 
-- ROC-AUC
-- Precision
-- Recall
-- F1-score
+- **ROC-AUC**
+- **Recall**
+- **Precision**
+- **F1-score**
 
-### Results
+### Results by Lead Time
 
-| Lead Time | ROC-AUC | Recall | Precision | F1 |
+| Lead Time | AUC | Recall | Precision | F1 |
 |---:|---:|---:|---:|---:|
-| 1 day | 0.8645 | 0.8121 | 0.2659 | 0.4006 |
-| 2 days | 0.8327 | 0.8267 | 0.2260 | 0.3550 |
-| 3 days | 0.8235 | 0.8311 | 0.2179 | 0.3453 |
+| 1 day | **0.8621** | 82.01% | 26.33% | 0.3986 |
+| 2 days | **0.8292** | 82.91% | 22.30% | 0.3514 |
+| 3 days | **0.8222** | **84.63%** | 21.52% | 0.3432 |
 
-The models achieve ROC-AUC values above 0.82 across all three lead times.
+The models maintain ROC-AUC values above **0.82** across all three lead
+times.
 
-Recall is intentionally important for the early-warning use case because
-missing a potentially dangerous event can be more costly than generating
-additional false alarms.
+The 3-day model achieves the highest recall at **84.63%**, while the
+1-day model achieves the highest AUC at **0.8621**.
 
-The relatively low precision indicates a significant false-alarm trade-off
-and is an important limitation of the current approach.
+The relatively low precision indicates a significant false-alarm trade-off,
+which is an important limitation of the current approach.
 
 ---
 
-## Warning Threshold
+## Prediction Threshold Tuning
 
-A separate threshold-tuning process is used to convert model probability
-into an operational warning decision.
+The XGBoost models produce prediction probabilities. A probability threshold
+is then applied to convert the predicted probability into an operational
+warning decision.
 
-The threshold is tuned using a Precision-Recall curve.
+The threshold was evaluated using a **Precision-Recall analysis**.
+
+### Threshold Evaluation
+
+| Threshold | Precision | Recall | F1 |
+|---:|---:|---:|---:|
+| 0.20 | 18.2% | 97.3% | 0.306 |
+| 0.25 | 19.2% | 96.0% | 0.320 |
+| 0.30 | 20.3% | 94.4% | 0.334 |
+| 0.35 | 21.6% | 92.5% | 0.350 |
+| **0.396** | **22.9%** | **90.0%** | **0.365** |
+| 0.50 | 26.3% | 89.8% | 0.366 |
+| 0.655 | 34.4% | 59.3% | **0.436** |
 
 The selected operational threshold is:
 
 ```text
-0.35
+0.396
 ```
 
 At this threshold:
 
 ```text
-Precision ≈ 0.217
-Recall    ≈ 0.921
-F1        ≈ 0.352
+Precision = 22.9%
+Recall    = 90.0%
+F1        = 0.365
 ```
 
-The threshold prioritizes **high recall** for an early-warning scenario.
+The selected threshold provides a **90.0% recall** while maintaining a higher
+precision than the lower thresholds evaluated.
 
-This means the system is designed to detect a large proportion of
-extreme-rainfall events while accepting a higher number of false alarms.
+For an early-warning application, this represents a deliberate trade-off
+between detecting extreme-rainfall events and limiting false alarms.
 
 ---
 
-## Historical Verification
+## Prediction Workflow
 
-A separate historical verification process evaluates the 1-day model on
-the final 15% of the dataset.
+The trained models are deployed through a separate **FastAPI AI service**.
 
-Reported results include:
-
-```text
-Test samples: 46,135
-ROC-AUC:      0.8940
-```
-
-For the extreme class:
+The system follows a scheduled prediction workflow:
 
 ```text
-Precision: 0.24
-Recall:    0.97
-F1:        0.38
-```
-
-The verification also checks selected historical event windows.
-
-These results provide additional evidence that the model can identify
-days matching the extreme-rainfall proxy label.
-
-However, this is **not independent ground-truth flood validation**.
-
----
-
-## Realtime Prediction
-
-The trained models are used by the separate FastAPI prediction service.
-
-The realtime pipeline retrieves weather data from **Open-Meteo** and
-transforms the data into features compatible with the trained models.
-
-```text
-Open-Meteo
-    |
-    v
-Hourly Weather Data
-    |
-    v
-Daily Aggregation
-    |
-    v
-Feature Engineering
-    |
-    v
-XGBoost Model
-    |
-    v
-Prediction Probability
-    |
-    v
-Flood Alert Backend
+00:30 / 12:30
+     |
+     v
+Retrieve weather data from Open-Meteo
+     |
+     v
+Process and prepare weather features
+     |
+     v
+06:30 / 18:30
+     |
+     v
+Call FastAPI AI service
+     |
+     v
+XGBoost prediction
+     |
+     v
+Return prediction results
+     |
+     v
+Flood-risk assessment & alerting
 ```
 
 ### Realtime Input Variables
@@ -438,7 +438,7 @@ The realtime weather service retrieves variables including:
 - Relative humidity
 - Reference evapotranspiration
 
-The data is aggregated into daily features before inference.
+The data is aggregated into daily features before model inference.
 
 ---
 
@@ -455,7 +455,7 @@ models/
 └── optimal_threshold.pkl
 ```
 
-These artifacts are consumed by the FastAPI AI service.
+These artifacts are loaded by the FastAPI AI service for prediction.
 
 ---
 
@@ -481,60 +481,73 @@ flood-alert-ai/
 
 ### Main Backend
 
-Spring Boot backend responsible for weather integration, IoT monitoring,
-flood-risk assessment, citizen alerts, authentication, and rescue
-coordination.
+Spring Boot backend responsible for:
+
+- Authentication and authorization
+- Weather data integration
+- IoT monitoring
+- Flood-risk assessment
+- Citizen alerting
+- SOS rescue requests
+- Rescue coordination and dispatch
+- Notifications
 
 https://github.com/khanhan0603/flood-alert
 
 ### FastAPI Prediction Service
 
-FastAPI service that loads the trained models and exposes prediction
-endpoints to the main backend.
+FastAPI service responsible for loading the trained XGBoost models and
+providing prediction APIs consumed by the Spring Boot backend.
 
 https://github.com/khanhan0603/ai-server-flood-alert
 
 ### Research Reference
 
-This project adapts research ideas and data-processing concepts from:
-
-**ECMWF Code for Earth - ml_flood**
+**ECMWF Code for Earth - `ml_flood`**
 
 https://github.com/ECMWFCode4Earth/ml_flood
 
-The original project investigates machine-learning approaches for flood
-prediction using open ECMWF/Copernicus datasets, including ERA5. This
-repository is an independent adaptation for a Vietnam-focused
-classification and early-warning use case.
+This project adapts research ideas and data-processing concepts from the
+original `ml_flood` project while implementing an independent
+Vietnam-focused machine-learning pipeline.
 
 ---
 
-## Limitations & Future Improvements
+## Limitations
 
-The current model has several limitations:
+The current approach has several limitations:
 
 - The target label is an extreme-rainfall proxy rather than observed flood
   events.
 - Precision is relatively low because the current approach prioritizes
-  recall.
-- Realtime runoff is approximated because Open-Meteo does not provide the
-  same ERA5 runoff variable used during training.
-- Independent validation using river discharge, water-level observations,
-  flood extent, or other ground-truth flood datasets is still required.
-- Training and realtime inference should use consistent feature-processing
-  parameters.
+  recall for early warning.
+- Independent validation against observed flood events is still required.
+- Realtime feature processing needs to remain consistent with the training
+  feature pipeline.
+- Additional hydrological and ground-truth flood observations could improve
+  the reliability of flood-risk prediction.
 
-Future improvements can include validating the model against independent
-flood observations and improving the consistency between the training and
-realtime feature pipelines.
+---
+
+## Future Improvements
+
+Potential improvements include:
+
+- Validating predictions against independent flood observations.
+- Incorporating river water-level and discharge data.
+- Improving realtime and training feature consistency.
+- Evaluating additional machine-learning algorithms.
+- Optimizing warning thresholds for different operational requirements.
+- Expanding the training dataset and incorporating additional environmental
+  predictors.
 
 ---
 
 ## Acknowledgement
 
-This project acknowledges the research direction and open-source work of
-the **ECMWF Code for Earth `ml_flood` project**.
+This project acknowledges the research direction and open-source work of the
+**ECMWF Code for Earth `ml_flood` project**.
 
-The original project can be found at:
+The original research project can be found at:
 
 https://github.com/ECMWFCode4Earth/ml_flood
