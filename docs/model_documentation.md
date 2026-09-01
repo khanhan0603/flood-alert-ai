@@ -226,12 +226,12 @@ Các model được đánh giá bằng:
 
 | Lead Time | ROC-AUC | Recall | Precision | F1 |
 |---:|---:|---:|---:|---:|
-| 1 day | **0.8621** | 82.01% | 26.33% | 0.3986 |
-| 2 days | **0.8292** | 82.91% | 22.30% | 0.3514 |
-| 3 days | **0.8222** | **84.63%** | 21.52% | 0.3432 |
+| 1 day | **0.8629** | 81.56% | 26.30% | 0.3978 |
+| 2 days | **0.8298** | 82.59% | 22.39% | 0.3523 |
+| 3 days | **0.8219** | **84.20%** | 21.68% | 0.3448 |
 
-- Model 1 ngày có **ROC-AUC cao nhất: 0.8621**.
-- Model 3 ngày có **Recall cao nhất: 84.63%**.
+- Model 1 ngày có **ROC-AUC cao nhất: 0.8629**.
+- Model 3 ngày có **Recall cao nhất: 84.20%**.
 - Precision thấp hơn Recall, phản ánh trade-off giữa khả năng phát hiện event và false alarm.
 
 ---
@@ -244,22 +244,23 @@ Threshold được đánh giá bằng **Precision-Recall analysis** trên test s
 
 | Threshold | Precision | Recall | F1 |
 |---:|---:|---:|---:|
-| 0.20 | 18.2% | 97.3% | 0.307 |
-| 0.25 | 19.3% | 96.1% | 0.322 |
-| 0.30 | 20.4% | 94.6% | 0.336 |
-| **0.35** | **21.7%** | **92.1%** | **0.352** |
-| 0.40 | 23.2% | 89.6% | 0.369 |
-| 0.50 | 26.6% | 81.2% | 0.401 |
+| 0.20 | 18.3% | 97.6% | 0.308 |
+| 0.25 | 19.3% | 96.3% | 0.321 |
+| 0.30 | 20.4% | 94.7% | 0.336 |
+| 0.35 | 21.7% | 92.7% | 0.352 |
+| **0.397** | **23.1%** | **90.0%** | **0.367** |
+| 0.40 | 23.2% | 89.8% | 0.368 |
+| 0.50 | 26.3% | 81.6% | 0.398 |
 
 Threshold được chọn trong hệ thống:
 
 ```text
-0.35
+0.397
 ```
 
-Lý do lựa chọn là ưu tiên **Recall cao** cho bài toán early warning. Tại threshold 0.35, Recall đạt **92.1%**, đổi lại Precision ở mức **21.7%**.
+Lý do lựa chọn là ưu tiên **Recall cao** cho bài toán early warning. Tại threshold 0.397, Recall đạt **90.0%**, đổi lại Precision ở mức **23.1%**.
 
-**0.35 không phải threshold có F1 cao nhất**; đây là threshold được lựa chọn theo mục tiêu vận hành của hệ thống.
+**0.397 không phải threshold có F1 cao nhất**; đây là threshold được lựa chọn theo mục tiêu vận hành của hệ thống. Threshold tối ưu theo F1 trong lần chạy này là 0.657 (Precision 34.7%, Recall 59.3%, F1 0.438).
 
 ---
 
@@ -370,29 +371,35 @@ models/
 
 ## 11. Historical Verification
 
-Model lead 1 day được kiểm tra trên 15% dữ liệu cuối.
+Model lead 1 day được kiểm tra trên 15% cuối của dataframe đã sắp xếp theo `province`, sau đó `date`, đúng theo `src/verify_history.py`.
 
 ```text
-Test samples: 46,135
-Date range: 2020-05-26 → 2023-12-30
-ROC-AUC: 0.8940
+Test samples: 49,986
+Date range: 2000-01-07 → 2025-12-30
+ROC-AUC: 0.8629
 ```
 
 | Class | Precision | Recall | F1 | Support |
 |---|---:|---:|---:|---:|
-| NORMAL | 0.99 | 0.59 | 0.74 | 40,795 |
-| EXTREME | 0.24 | 0.97 | 0.38 | 5,340 |
+| NORMAL | 0.98 | 0.66 | 0.79 | 44,949 |
+| EXTREME | 0.23 | 0.90 | 0.37 | 5,037 |
 
 Accuracy tổng:
 
 ```text
-0.63
+0.69
 ```
 
-Historical windows được kiểm tra gồm:
+Historical windows được kiểm tra với threshold 0.397 gồm:
 
-- **Hà Tĩnh 2020:** 12/14 ngày được gán label = 1; model cảnh báo 14 ngày; maximum probability 0.980; event recall 1.00.
-- **An Giang 2021:** 10/61 ngày được gán label = 1; model cảnh báo 59 ngày; maximum probability 0.929; event recall 1.00.
+| Sự kiện | Tỉnh | Khoảng kiểm tra | Ngày có dữ liệu | Ngày cảnh báo | Ngày extreme | Model phát hiện | Xác suất TB / cao nhất |
+|---|---|---|---:|---:|---:|---:|---:|
+| Typhoon Noru (2022) | Quảng Ngãi | 2022-09-26 → 2022-09-29 | 3 | 2 | 2 | 2/2 | 0.578 / 0.892 |
+| Central Vietnam Flood 2023 | Huế | 2023-10-12 → 2023-10-18 | 6 | 6 | 5 | 5/5 | 0.922 / 0.959 |
+| Super Typhoon Yagi (2024) | Lào Cai | 2024-09-05 → 2024-09-10 | 5 | 5 | 3 | 3/3 | 0.884 / 0.956 |
+| Super Typhoon Yagi (2024) | Tuyên Quang | 2024-09-05 → 2024-09-10 | 5 | 5 | 3 | 3/3 | 0.887 / 0.962 |
+| Super Typhoon Yagi (2024) | Thái Nguyên | 2024-09-05 → 2024-09-10 | 5 | 5 | 4 | 4/4 | 0.940 / 0.972 |
+| Typhoon Wutip (2025) | Hà Tĩnh | 2025-06-10 → 2025-06-15 | 5 | 4 | 3 | 3/3 | 0.686 / 0.968 |
 
 Kết quả cho thấy model phát hiện được các ngày extreme-rainfall theo proxy label trong các historical windows được kiểm tra. Tuy nhiên, số ngày cảnh báo cao hơn số ngày label = 1, phù hợp với precision thấp và recall cao.
 
@@ -455,9 +462,9 @@ Spring Boot flood-risk assessment
 ### Kết quả chính
 
 - **3 XGBoost models** cho lead time 1, 2 và 3 ngày.
-- ROC-AUC: **0.8621 / 0.8292 / 0.8222**.
-- Recall: **82.01% / 82.91% / 84.63%**.
-- Threshold cảnh báo: **0.35**, với Recall **92.1%** trên threshold evaluation.
+- ROC-AUC: **0.8629 / 0.8298 / 0.8219**.
+- Recall: **81.56% / 82.59% / 84.20%**.
+- Threshold cảnh báo: **0.397**, với Recall **90.0%** trên threshold evaluation.
 - Open-Meteo được gọi **2 lần/ngày** lúc **00:30 và 12:30**.
 - Spring Boot gọi FastAPI AI service **2 lần/ngày** lúc **06:30 và 18:30**.
 - Model được sử dụng như một thành phần trong hệ thống đánh giá nguy cơ và cảnh báo lũ, không phải một hệ thống dự báo flood ground-truth độc lập.
