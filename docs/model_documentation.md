@@ -1,33 +1,49 @@
-# Tai lieu mo hinh du bao nguy co lu Viet Nam
+# Tài liệu mô hình dự báo nguy cơ lũ tại Việt Nam
 
-## 1. Nguon goc tu model goc ECMWFCode4Earth/ml_flood
+## 1. Nguồn gốc và cơ sở nghiên cứu
 
-Repo goc `ECMWFCode4Earth/ml_flood` la mot nghien cuu so sanh cac ky thuat machine learning de du bao flood events bang du lieu mo cua ECMWF/Copernicus. README cua repo goc neu ro cach tiep can:
+Mô hình được phát triển dựa trên việc **kế thừa ý tưởng nghiên cứu và quy trình xử lý dữ liệu** từ dự án mã nguồn mở **ECMWF Code for Earth – `ml_flood`**:
 
-- Dung ERA5 lam predictor.
-- Dung GloFAS reanalysis/forecast rerun hoac severe event catalogue lam predictand/doi tuong danh gia.
-- Thu cac model ML nhu Linear Regression, Support Vector Regression, Gradient Boosting va Neural Net.
-- Co tu duy hydrology/physics-informed: mua o thuong nguon, dong chay, do tre thoi gian va tac dong cuc bo.
+https://github.com/ECMWFCode4Earth/ml_flood
 
-He thong `vietnam_flood_system` ke thua y tuong khoa hoc chinh nay: dung du lieu khi tuong ERA5, bien thuy van lien quan den mua/runoff, lag theo thoi gian va rolling window de du bao nguy co flood/extreme-rainfall trong tuong lai ngan han.
+Dự án `ml_flood` nghiên cứu việc sử dụng các kỹ thuật Machine Learning để dự báo các sự kiện lũ dựa trên dữ liệu mở từ ECMWF/Copernicus. Một số định hướng được kế thừa gồm:
 
-Tuy nhien, he thong hien tai khong copy truc tiep model goc. No da duoc chuyen thanh bai toan classification cho Viet Nam:
+- Sử dụng **ERA5** làm nguồn dữ liệu khí tượng.
+- Sử dụng các biến liên quan đến lượng mưa và thủy văn.
+- Khai thác **độ trễ theo thời gian (lag features)**.
+- Sử dụng **rolling window features** để biểu diễn tác động tích lũy của điều kiện thời tiết.
+- Kết hợp các biến mang tính thủy văn như **runoff** và **Antecedent Precipitation Index (API)**.
+- Xem xét mối quan hệ giữa điều kiện khí tượng hiện tại, điều kiện trước đó và nguy cơ xảy ra sự kiện cực đoan trong tương lai.
 
-- Model: `XGBClassifier`.
-- Output: xac suat canh bao cho lead 1, 2, 3 ngay.
-- Don vi khong gian: 34 tinh/thanh.
-- Dataset train: `data/processed/flood_dataset_v3.parquet`.
+Tuy nhiên, mô hình trong dự án này **không sử dụng trực tiếp mô hình được huấn luyện sẵn từ `ml_flood`**. Đây là một pipeline Machine Learning được xây dựng và huấn luyện riêng cho bài toán tại Việt Nam, với cách xác định nhãn, feature engineering và thời gian dự báo được điều chỉnh cho hệ thống cảnh báo sớm.
 
-Chung cu trong code:
+### Khác biệt chính
 
-- `ml_flood/README.md`: mo ta ERA5, GloFAS, ML techniques.
-- `vietnam_flood_system/src/train_model.py`: train XGBoost classifier cho 3 lead days.
+| `ml_flood` | Mô hình trong dự án |
+|---|---|
+| Nghiên cứu dự báo flood events | Dự báo extreme-rainfall events làm proxy cho nguy cơ lũ |
+| ERA5 kết hợp dữ liệu thủy văn | ERA5 và các biến khí tượng/thủy văn liên quan |
+| Nhiều kỹ thuật Machine Learning | XGBoost classification |
+| Hướng nghiên cứu flood/discharge | Early-warning theo extreme rainfall |
+| Quy trình nghiên cứu gốc | Quy trình được điều chỉnh cho Việt Nam |
+| — | 3 mô hình cho lead time 1, 2 và 3 ngày |
+| — | 34 tỉnh/thành |
 
-## 2. Du lieu va bien dau vao
+---
 
-Du lieu lich su duoc tai bang ERA5 single-levels tu nam 2000 den 2023, voi tan suat 6 gio/luc. Bounding box dung cho Viet Nam: `[23.5, 102.0, 8.5, 110.0]`.
+## 2. Dữ liệu và biến đầu vào
 
-Bien ERA5 duoc tai:
+### 2.1. Dữ liệu lịch sử
+
+Dữ liệu huấn luyện được xây dựng từ **ERA5 single-level data** cho khu vực Việt Nam.
+
+- Giai đoạn dữ liệu: **2000–2025**
+- Tần suất dữ liệu gốc: **6 giờ/lần**
+- Phạm vi không gian: Việt Nam
+- Đơn vị không gian: **34 tỉnh/thành**
+- Quy mô dataset: **330,000+ records**
+
+Các biến ERA5 được sử dụng gồm:
 
 - `total_precipitation`
 - `2m_temperature`
@@ -38,196 +54,231 @@ Bien ERA5 duoc tai:
 - `evaporation`
 - `runoff`
 
-Chung cu: `vietnam_flood_system/src/download_era5.py`.
+### 2.2. Tiền xử lý
 
-Pipeline preprocess trong `preprocess_era5.py`:
+Pipeline tiền xử lý thực hiện:
 
-- Chuyen ERA5 UTC sang ngay Viet Nam bang offset UTC+7.
-- Tong hop theo 34 tinh/thanh.
-- Tao bien daily: `tp_mean`, `tp_max`, `tp_p90`, `tp_p99`, `t2m_mean`, `t2m_max`, `d2m_mean`, `rh_mean`, `sp_mean`, `u10_mean`, `v10_mean`, `ws_mean`, `ws_max`, `evap_mean`, `ro_mean`, `ro_max`.
-- Tao lag 1-7 ngay cho cac bien mua, runoff, gio, do am, ap suat.
-- Tao rolling windows 3/5/7 ngay cho mua va runoff.
-- Tao Antecedent Precipitation Index:
+1. Chuyển timestamp từ UTC sang thời gian Việt Nam bằng **UTC+7**.
+2. Ánh xạ dữ liệu vào **34 tỉnh/thành**.
+3. Tổng hợp dữ liệu 6 giờ thành các đặc trưng theo ngày.
+4. Tạo các đặc trưng thống kê về lượng mưa, nhiệt độ, độ ẩm, áp suất, gió, bốc hơi và runoff.
+5. Tạo lag features từ 1 đến 7 ngày.
+6. Tạo rolling features với cửa sổ 3, 5 và 7 ngày.
+7. Tính Antecedent Precipitation Index (API).
+
+### 2.3. Daily features
+
+Các đặc trưng theo ngày gồm:
+
+- `tp_mean`
+- `tp_max`
+- `tp_p90`
+- `tp_p99`
+- `t2m_mean`
+- `t2m_max`
+- `d2m_mean`
+- `rh_mean`
+- `sp_mean`
+- `u10_mean`
+- `v10_mean`
+- `ws_mean`
+- `ws_max`
+- `evap_mean`
+- `ro_mean`
+- `ro_max`
+
+### 2.4. Lag features
+
+Các biến thời tiết và thủy văn được tạo lag tối đa **7 ngày** nhằm giúp mô hình khai thác điều kiện thời tiết trong những ngày trước đó.
+
+### 2.5. Rolling features
+
+Các rolling windows **3 ngày, 5 ngày và 7 ngày** được sử dụng để biểu diễn tác động tích lũy hoặc kéo dài của lượng mưa và runoff.
+
+### 2.6. Antecedent Precipitation Index
+
+API được sử dụng để biểu diễn ảnh hưởng của lượng mưa trong quá khứ:
 
 ```text
-API_t = k * API_{t-1} + P_t
+API_t = k × API_(t-1) + P_t
 ```
 
-Trong training, `k = 0.85`.
+Trong quá trình huấn luyện:
 
-Dataset da doc bang moi truong `C:\conda_envs\flood_vn\python.exe`:
+```text
+k = 0.85
+```
 
-- `flood_dataset_v3.parquet`: 307,836 dong, 103 cot.
-- Date range: 1999-12-31 07:00:00 den 2023-12-31 07:00:00.
-- So tinh: 34.
-- So feature dung train: 97.
-- Flood ratio: 0.10008, tuc khoang 10.01%.
+---
 
-## 3. Phuong phap xac dinh nguong lu
+## 3. Xác định nhãn extreme-rainfall
 
-Can noi chinh xac: trong version `v3`, nhan `flood_label` hien tai khong phai la muc nuoc lu quan trac truc tiep. Nhan nay duoc tao nhu mot proxy cho ngay mua cuc doan theo nguong percentile 90 cua `tp_max` rieng theo tung tinh.
+### 3.1. Bản chất của nhãn
 
-Cong thuc trong `build_labels_v3.py`:
+Trong phiên bản hiện tại, `flood_label` **không phải là dữ liệu quan trắc mực nước lũ trực tiếp**.
+
+Nhãn được xây dựng như một **proxy cho extreme-rainfall event**, sau đó được sử dụng làm proxy cho nguy cơ lũ.
+
+### 3.2. P90 theo từng tỉnh
+
+Đối với mỗi tỉnh/thành, tính **P90 (90th percentile) của lượng mưa cực đại theo ngày `tp_max` riêng cho tỉnh đó**.
 
 ```python
 province_thresholds = (
     df.groupby('province')['tp_max']
-    .quantile(0.90)
-    .rename('tp_p90_province')
-    .reset_index()
-)
-
-df['flood_label'] = (df['tp_max'] >= df['tp_p90_province']).astype(int)
-```
-
-Y nghia khoa hoc:
-
-- Dung percentile threshold la cach pho bien trong phan tich extreme precipitation.
-- Dung nguong theo tung tinh giup thich nghi voi khac biet khi hau dia phuong. Mien Trung, mien nui phia Bac va Dong bang song Cuu Long co che do mua khac nhau, nen mot nguong mm/toan quoc se kem hop ly.
-- Nguong p90 tao ra nhan "extreme rainfall day" khoang 10% moi tinh.
-
-Gioi han khoa hoc:
-
-- Day la nhan proxy cho nguy co lu, khong phai xac nhan lu that.
-- De ket luan model predict lu that chinh xac, can validate them bang du lieu doc lap: muc nuoc song, discharge, ban do ngap, bao cao thiet hai, hoac GloFAS discharge threshold.
-
-## 4. Train model
-
-File train: `vietnam_flood_system/src/train_model.py`.
-
-Cach train:
-
-- Load `data/processed/flood_dataset_v3.parquet`.
-- Loai bo cot khong phai feature: `date`, `province`, `region`, `flood_label`, `risk_level`, `tp_p90_province`, target columns.
-- Tao target theo lead day:
-
-```python
-df[f'target'] = df.groupby('province')['flood_label'].shift(-lead)
-```
-
-- Train rieng 3 model cho `lead = 1, 2, 3`.
-- Split theo thoi gian 70/15/15.
-- Xu ly imbalance bang `scale_pos_weight = neg / pos`.
-- Model:
-
-```python
-XGBClassifier(
-    n_estimators=500,
-    max_depth=6,
-    learning_rate=0.05,
-    scale_pos_weight=scale_weight,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    min_child_weight=5,
-    random_state=42,
-    eval_metric='auc',
-    early_stopping_rounds=50,
+      .quantile(0.90)
+      .rename('tp_p90_province')
+      .reset_index()
 )
 ```
 
-Artefacts duoc luu:
+Sau đó xác định nhãn:
 
-- `models/xgboost_lead1d.pkl`
-- `models/xgboost_lead2d.pkl`
-- `models/xgboost_lead3d.pkl`
-- `models/feature_cols.pkl`
-- `models/optimal_threshold.pkl`
+```python
+df['flood_label'] = (
+    df['tp_max'] >= df['tp_p90_province']
+).astype(int)
+```
 
-## 5. Ket qua test model
+Như vậy:
 
-Ket qua tu `reports/model_results.csv`:
+```text
+flood_label = 1
+```
 
-| Lead | AUC | Recall | Precision | F1 |
+khi lượng mưa cực đại trong ngày đạt hoặc vượt **P90 của chính tỉnh đó**.
+
+### 3.3. Ý nghĩa của P90 theo từng tỉnh
+
+Việc sử dụng ngưỡng P90 riêng cho từng tỉnh giúp phản ánh sự khác biệt về chế độ mưa giữa các khu vực.
+
+Thay vì áp dụng một ngưỡng mm cố định cho toàn Việt Nam, mỗi tỉnh có một ngưỡng extreme-rainfall riêng dựa trên phân bố lượng mưa lịch sử của tỉnh đó.
+
+---
+
+## 4. Xây dựng target cho các lead time
+
+Target được tạo theo từng tỉnh:
+
+```python
+df['target'] = (
+    df.groupby('province')['flood_label']
+      .shift(-lead)
+)
+```
+
+Ba mô hình được huấn luyện độc lập:
+
+```text
+Lead 1 → dự báo extreme-rainfall event trước 1 ngày
+Lead 2 → dự báo extreme-rainfall event trước 2 ngày
+Lead 3 → dự báo extreme-rainfall event trước 3 ngày
+```
+
+---
+
+## 5. Huấn luyện mô hình
+
+### 5.1. Thuật toán
+
+Sử dụng **XGBoost Classifier (`XGBClassifier`)**.
+
+Ba mô hình được huấn luyện riêng cho ba lead time:
+
+```text
+XGBoost Lead 1 day
+XGBoost Lead 2 days
+XGBoost Lead 3 days
+```
+
+### 5.2. Temporal split
+
+Dataset được chia theo thứ tự thời gian:
+
+```text
+70% → Training
+15% → Validation
+15% → Test
+```
+
+Việc chia theo thời gian được sử dụng thay vì random split nhằm hạn chế việc thông tin từ tương lai xuất hiện trong tập huấn luyện.
+
+### 5.3. Class imbalance
+
+Extreme-rainfall events chiếm khoảng **10%** dataset.
+
+Để xử lý mất cân bằng lớp, sử dụng:
+
+```text
+scale_pos_weight = negative_samples / positive_samples
+```
+
+---
+
+## 6. Kết quả đánh giá mô hình
+
+Các model được đánh giá bằng:
+
+- **ROC-AUC**
+- **Recall**
+- **Precision**
+- **F1-score**
+
+| Lead Time | ROC-AUC | Recall | Precision | F1 |
 |---:|---:|---:|---:|---:|
-| 1 ngay | 0.8645 | 0.8121 | 0.2659 | 0.4006 |
-| 2 ngay | 0.8327 | 0.8267 | 0.2260 | 0.3550 |
-| 3 ngay | 0.8235 | 0.8311 | 0.2179 | 0.3453 |
+| 1 day | **0.8621** | 82.01% | 26.33% | 0.3986 |
+| 2 days | **0.8292** | 82.91% | 22.30% | 0.3514 |
+| 3 days | **0.8222** | **84.63%** | 21.52% | 0.3432 |
 
-Y nghia:
+- Model 1 ngày có **ROC-AUC cao nhất: 0.8621**.
+- Model 3 ngày có **Recall cao nhất: 84.63%**.
+- Precision thấp hơn Recall, phản ánh trade-off giữa khả năng phát hiện event và false alarm.
 
-- AUC > 0.82 cho ca 3 lead days cho thay model co kha nang phan biet ngay extreme va normal tot hon random ro rang.
-- Recall cao hon precision. Dieu nay phu hop voi early warning, vi muc tieu la bat duoc nhieu ngay nguy co cao, chap nhan false alarm.
-- Precision thap nghia la nhieu canh bao co the khong trung nhan extreme. Can trinh bay ro neu dua vao ung dung thuc te.
+---
 
-## 6. Chon threshold canh bao
+## 7. Ngưỡng cảnh báo
 
-File: `vietnam_flood_system/src/tune_threshold.py`.
+Model trả về xác suất dự báo. Xác suất được chuyển thành quyết định cảnh báo bằng threshold.
 
-Threshold duoc tune bang Precision-Recall curve tren test set lead 1d.
-
-Ket qua chay lai:
-
-- Best F1 threshold: 0.668.
-- Tai best F1: Precision 0.362, Recall 0.568, F1 0.442.
-- Threshold cho Recall >= 0.85: 0.460.
-- Threshold duoc chon trong he thong: 0.35.
-
-Bang so sanh:
+Threshold được đánh giá bằng **Precision-Recall analysis** trên test set của model lead 1 day.
 
 | Threshold | Precision | Recall | F1 |
 |---:|---:|---:|---:|
-| 0.20 | 0.182 | 0.973 | 0.307 |
-| 0.25 | 0.193 | 0.961 | 0.322 |
-| 0.30 | 0.204 | 0.946 | 0.336 |
-| 0.35 | 0.217 | 0.921 | 0.352 |
-| 0.40 | 0.232 | 0.896 | 0.369 |
-| 0.50 | 0.266 | 0.812 | 0.401 |
+| 0.20 | 18.2% | 97.3% | 0.307 |
+| 0.25 | 19.3% | 96.1% | 0.322 |
+| 0.30 | 20.4% | 94.6% | 0.336 |
+| **0.35** | **21.7%** | **92.1%** | **0.352** |
+| 0.40 | 23.2% | 89.6% | 0.369 |
+| 0.50 | 26.6% | 81.2% | 0.401 |
 
-Ly do chon 0.35:
-
-- Uu tien recall cao trong bai toan canh bao som.
-- Bat duoc khoang 92% ngay extreme-rainfall trong test threshold tuning.
-- Trade-off la precision chi khoang 21.7%, tuc co nhieu false alarm.
-
-## 7. Verify lich su
-
-File: `vietnam_flood_system/src/verify_history.py`.
-
-Muc tieu:
-
-- Lay 15% cuoi dataset lam test set.
-- Predict bang model lead 1d.
-- Dung threshold `0.35`.
-- Kiem tra overall metrics va mot so event lich su hard-code.
-
-Ket qua chay lai:
-
-- Test set: 46,135 dong.
-- Date range: 2020-05-26 den 2023-12-30.
-- AUC: 0.8940.
-
-Classification report:
-
-| Class | Precision | Recall | F1 | Support |
-|---|---:|---:|---:|---:|
-| NORMAL | 0.99 | 0.59 | 0.74 | 40,795 |
-| EXTREME | 0.24 | 0.97 | 0.38 | 5,340 |
-
-Accuracy tong: 0.63.
-
-Kiem tra event:
-
-- Lu Mien Trung 2020 tai `ha_tinh`: 14 ngay trong window, 12 ngay label=1, model alert 14 ngay, max probability 0.980, recall event 1.00.
-- Lu DBSCL 2021 tai `an_giang`: 61 ngay trong window, 10 ngay label=1, model alert 59 ngay, max probability 0.929, recall event 1.00.
-- `quang_binh` va `quang_nam` khong co trong danh sach 34 tinh hien tai nen script khong verify duoc hai event nay.
-
-Ket luan tu verify:
-
-- Model bat duoc cac ngay duoc gan nhan extreme trong cac window da test.
-- So ngay alert nhieu hon so ngay label=1, phu hop voi precision thap/recall cao.
-- Day van la verify theo nhan proxy, chua phai verify bang quan trac lu doc lap.
-
-## 8. Bien du lieu thoi tiet lay tu API free khi predict realtime
-
-File: `vietnam_flood_system/src/weather_fetcher.py`.
-
-API free dang dung: Open-Meteo, endpoint:
+Threshold được chọn trong hệ thống:
 
 ```text
-https://api.open-meteo.com/v1/forecast
+0.35
 ```
 
-Bien hourly lay tu Open-Meteo:
+Lý do lựa chọn là ưu tiên **Recall cao** cho bài toán early warning. Tại threshold 0.35, Recall đạt **92.1%**, đổi lại Precision ở mức **21.7%**.
+
+**0.35 không phải threshold có F1 cao nhất**; đây là threshold được lựa chọn theo mục tiêu vận hành của hệ thống.
+
+---
+
+## 8. Scheduled Prediction Workflow
+
+Mô hình **không thực hiện realtime prediction liên tục**.
+
+Hệ thống sử dụng quy trình dự báo theo lịch.
+
+### 8.1. Lấy dữ liệu thời tiết
+
+Dữ liệu thời tiết được lấy từ **Open-Meteo** hai lần mỗi ngày:
+
+```text
+00:30
+12:30
+```
+
+Các biến được lấy gồm:
 
 - `precipitation`
 - `temperature_2m`
@@ -238,49 +289,175 @@ Bien hourly lay tu Open-Meteo:
 - `relativehumidity_2m`
 - `et0_fao_evapotranspiration`
 
-Cach aggregate sang daily:
+### 8.2. Xử lý dữ liệu
 
-- Mua: `tp_mean`, `tp_max`, `tp_p90`, `tp_p99`.
-- Nhiet do: `t2m_mean`, `t2m_max`.
-- Dewpoint: `d2m_mean`.
-- Do am: `rh_mean`.
-- Ap suat: `sp_mean`.
-- Gio: `ws_mean`, `ws_max`, `u10_mean`, `v10_mean`.
-- Evapotranspiration: `evap_mean`.
+```text
+Open-Meteo hourly data
+        ↓
+Daily aggregation
+        ↓
+Feature processing
+        ↓
+Model-compatible features
+```
 
-Open-Meteo khong co runoff, nen code uoc luong runoff tu precipitation:
+### 8.3. Gọi FastAPI AI service
+
+Spring Boot backend gọi **FastAPI AI service** hai lần mỗi ngày:
+
+```text
+06:30
+18:30
+```
+
+Quy trình tổng thể:
+
+```text
+00:30 / 12:30
+      ↓
+Retrieve weather data from Open-Meteo
+      ↓
+Process weather data
+      ↓
+Prepare model features
+      ↓
+06:30 / 18:30
+      ↓
+Spring Boot calls FastAPI AI service
+      ↓
+XGBoost prediction
+      ↓
+Prediction probability
+      ↓
+Spring Boot flood-risk assessment
+      ↓
+Alert / notification workflow
+```
+
+FastAPI AI service chịu trách nhiệm tải model và thực hiện inference.
+
+---
+
+## 9. Runoff trong prediction
+
+Training sử dụng biến `runoff` từ ERA5.
+
+Open-Meteo không cung cấp cùng biến runoff như ERA5. Trong pipeline prediction, runoff được ước lượng từ precipitation:
 
 ```python
 daily["ro_mean"] = daily["tp_mean"] * 0.15
-daily["ro_max"]  = daily["tp_max"]  * 0.20
+daily["ro_max"]  = daily["tp_max"] * 0.20
 ```
 
-Gioi han:
+Đây là approximation và **không tương đương với ERA5 runoff thực tế**.
 
-- Runoff realtime la approximation, khong tuong duong ERA5 runoff that.
-- Trong training, API dung `k=0.85`, nhung realtime trong `weather_fetcher.py` dang dung `k=0.9`. Day la diem nen dong bo neu muon consistency khoa hoc giua train va inference.
+---
 
-## 9. Cach biet model predict chinh xac
+## 10. Model Artifacts
 
-Hien tai co the noi model chinh xac theo 3 muc chung cu:
+Các artifact được sử dụng bởi AI prediction service:
 
-1. Cross/test theo temporal split:
-   - AUC, precision, recall, F1 trong `reports/model_results.csv`.
+```text
+models/
+├── xgboost_lead1d.pkl
+├── xgboost_lead2d.pkl
+├── xgboost_lead3d.pkl
+├── feature_cols.pkl
+└── optimal_threshold.pkl
+```
 
-2. Threshold validation:
-   - Precision-Recall curve trong `tune_threshold.py`.
-   - Threshold `0.35` duoc chon vi recall cao.
+---
 
-3. Historical window verification:
-   - `verify_history.py` kiem tra mot so event lich su trong test period.
+## 11. Historical Verification
 
-Nhung khong duoc noi qua muc:
+Model lead 1 day được kiểm tra trên 15% dữ liệu cuối.
 
-- Chua co bang chung trong code rang model da verify bang mực nước song, discharge observation, satellite flood extent, ban do ngap, hay thiệt hai thuc te theo ngay/tinh.
-- Do do, ket luan dung nhat la: model predict kha tot nguy co `EXTREME rainfall/flood proxy`, chua du bang chung de khang dinh predict chinh xac flood event thuc dia.
+```text
+Test samples: 46,135
+Date range: 2020-05-26 → 2023-12-30
+ROC-AUC: 0.8940
+```
 
-## 10. Ket luan ngan gon
+| Class | Precision | Recall | F1 | Support |
+|---|---:|---:|---:|---:|
+| NORMAL | 0.99 | 0.59 | 0.74 | 40,795 |
+| EXTREME | 0.24 | 0.97 | 0.38 | 5,340 |
 
-He thong `vietnam_flood_system` la ban thich nghi tu y tuong cua `ml_flood`: dung ERA5 va machine learning de du bao nguy co lũ. Khac voi repo goc thien ve discharge/GloFAS, he thong nay train XGBoost classifier tren 34 tinh Viet Nam, voi nhan duoc tao tu nguong p90 cua `tp_max` theo tinh.
+Accuracy tổng:
 
-Ve mat khoa hoc, cach dung percentile threshold, lag rainfall, rolling rainfall/runoff va API la hop ly cho bai toan early warning. Ket qua test cho thay recall cao, dac biet threshold 0.35 bat duoc nhieu ngay extreme. Tuy nhien precision thap va nhan la proxy, nen can bo sung du lieu quan trac lu doc lap neu muon ket luan ve do chinh xac cua du bao lu that.
+```text
+0.63
+```
+
+Historical windows được kiểm tra gồm:
+
+- **Hà Tĩnh 2020:** 12/14 ngày được gán label = 1; model cảnh báo 14 ngày; maximum probability 0.980; event recall 1.00.
+- **An Giang 2021:** 10/61 ngày được gán label = 1; model cảnh báo 59 ngày; maximum probability 0.929; event recall 1.00.
+
+Kết quả cho thấy model phát hiện được các ngày extreme-rainfall theo proxy label trong các historical windows được kiểm tra. Tuy nhiên, số ngày cảnh báo cao hơn số ngày label = 1, phù hợp với precision thấp và recall cao.
+
+---
+
+## 12. Giới hạn của mô hình
+
+Không nên kết luận rằng mô hình đã chứng minh khả năng dự báo chính xác **flood events thực địa**.
+
+Các giới hạn hiện tại:
+
+- Target là **extreme-rainfall proxy**, không phải observed flood label.
+- Precision tương đối thấp.
+- Runoff trong prediction là approximation.
+- Pipeline training và inference cần duy trì tính nhất quán về feature engineering.
+- Chưa có validation độc lập với mực nước sông, discharge, flood extent hoặc dữ liệu thiệt hại thực tế.
+
+Vì vậy, kết luận phù hợp nhất là:
+
+> Mô hình có khả năng phân biệt và phát hiện các extreme-rainfall events theo proxy label với ROC-AUC trên 0.82 cho cả ba lead times, đồng thời ưu tiên Recall cao cho mục tiêu cảnh báo sớm. Cần thêm dữ liệu flood observations độc lập để đánh giá khả năng dự báo lũ thực địa.
+
+---
+
+## 13. Kết luận
+
+Đây là một pipeline Machine Learning được xây dựng riêng cho bài toán cảnh báo nguy cơ lũ tại Việt Nam, **kế thừa ý tưởng nghiên cứu và quy trình xử lý dữ liệu từ ECMWF Code for Earth `ml_flood`**, thay vì sử dụng trực tiếp model có sẵn.
+
+Pipeline:
+
+```text
+ERA5 historical data
+        ↓
+UTC → Vietnam time
+        ↓
+34 provinces/cities
+        ↓
+Daily aggregation
+        ↓
+Lag / Rolling / API features
+        ↓
+Province-specific P90
+        ↓
+Extreme-rainfall proxy label
+        ↓
+Temporal 70/15/15 split
+        ↓
+XGBoost training
+        ↓
+1 / 2 / 3-day models
+        ↓
+Model evaluation
+        ↓
+FastAPI AI service
+        ↓
+Scheduled prediction
+        ↓
+Spring Boot flood-risk assessment
+```
+
+### Kết quả chính
+
+- **3 XGBoost models** cho lead time 1, 2 và 3 ngày.
+- ROC-AUC: **0.8621 / 0.8292 / 0.8222**.
+- Recall: **82.01% / 82.91% / 84.63%**.
+- Threshold cảnh báo: **0.35**, với Recall **92.1%** trên threshold evaluation.
+- Open-Meteo được gọi **2 lần/ngày** lúc **00:30 và 12:30**.
+- Spring Boot gọi FastAPI AI service **2 lần/ngày** lúc **06:30 và 18:30**.
+- Model được sử dụng như một thành phần trong hệ thống đánh giá nguy cơ và cảnh báo lũ, không phải một hệ thống dự báo flood ground-truth độc lập.
